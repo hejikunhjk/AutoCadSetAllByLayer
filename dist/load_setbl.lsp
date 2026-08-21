@@ -15,12 +15,7 @@
       (princ (strcat "\n[SetBL] 正在加载: " dll-path))
       ;; 使用 _.netload 确保调用 AutoCAD 原生命令
       (command "_.netload" dll-path)
-      (princ "\n[SetBL] 插件已加载！")
-      (princ "\n可用命令：")
-      (princ "\n  SetBL    - 标准版本（仅处理标准对象）")
-      (princ "\n  SetBLTZ  - 天正版本（包含标注文字颜色）")
-      (princ "\n  INSPECT  - 探测对象类型和XData")
-      (princ "\n  INSPECTX - 探测单个对象完整XData")
+      (princ "\n[SetBL] 插件已加载！命令行输入: SetBL")
       (princ)
     )
   )
