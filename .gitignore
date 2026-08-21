@@ -28,4 +28,3 @@ obj/
 
 # Distribution (upload to GitHub)
 !dist/
-dist/*.dll
