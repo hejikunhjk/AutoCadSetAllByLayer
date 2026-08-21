@@ -96,50 +96,45 @@ public class SetBLCommands
             // 获取块表
             BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
 
-            // 遍历模型空间和图纸空间
+            // 遍历所有布局（模型空间和图纸空间）
             foreach (ObjectId blockId in bt)
             {
                 BlockTableRecord blockRec = (BlockTableRecord)tr.GetObject(blockId, OpenMode.ForRead);
 
-                // 只处理模型空间和图纸空间（布局）
+                // 只处理布局（模型空间和图纸空间）
                 if (!blockRec.IsLayout)
                     continue;
 
-                // 遍历块内的所有 ObjectId
+                // 遍历布局内的所有对象
                 foreach (ObjectId entityId in blockRec)
                 {
-                    // 先以读模式检查是否是 BlockReference
                     Entity entity = (Entity)tr.GetObject(entityId, OpenMode.ForRead);
                     if (entity != null)
                     {
-                        // 排除 INSERT 类型的块引用（避免重复处理块内容）
-                        if (!(entity is BlockReference))
+                        // 检查图层是否锁定
+                        try
                         {
-                            // 先检查图层是否锁定，避免以写模式打开时抛异常
-                            try
-                            {
-                                LayerTableRecord layerRec = (LayerTableRecord)tr.GetObject(entity.LayerId, OpenMode.ForRead);
-                                if (layerRec.IsLocked)
-                                {
-                                    independentSkipped++;
-                                    continue;
-                                }
-                            }
-                            catch
-                            {
-                                // 无法检查图层状态，继续尝试修改
-                            }
-
-                            // 以写模式打开并修改实体
-                            Entity entityToModify = (Entity)tr.GetObject(entityId, OpenMode.ForWrite);
-                            if (ColorHelper.SetToByLayer(entityToModify, tr))
-                            {
-                                independentModified++;
-                            }
-                            else
+                            LayerTableRecord layerRec = (LayerTableRecord)tr.GetObject(entity.LayerId, OpenMode.ForRead);
+                            if (layerRec.IsLocked)
                             {
                                 independentSkipped++;
+                                continue;
                             }
+                        }
+                        catch
+                        {
+                            // 无法检查图层状态，继续尝试修改
+                        }
+
+                        // 以写模式打开并修改实体（包括块引用和普通对象）
+                        Entity entityToModify = (Entity)tr.GetObject(entityId, OpenMode.ForWrite);
+                        if (ColorHelper.SetToByLayer(entityToModify, tr))
+                        {
+                            independentModified++;
+                        }
+                        else
+                        {
+                            independentSkipped++;
                         }
                     }
                 }

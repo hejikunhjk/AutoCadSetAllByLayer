@@ -1,7 +1,10 @@
 // filepath: SetBL/SetBL/Utils/ColorHelper.cs
+using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 using System;
+using System.Collections.Generic;
 
 namespace SetBL.Utils;
 
@@ -15,6 +18,40 @@ public static class ColorHelper
     /// ByLayer 的颜色索引值
     /// </summary>
     public const short ByLayerColorIndex = 256;
+
+    /// <summary>
+    /// 天正符号对象类型列表（可通过 COM interop 修改 TextColor）
+    /// </summary>
+    private static readonly HashSet<string> s_tarchSymbolTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "TDbSymbIndexPointer",
+        "TDbSymbNorthThumb",
+        "TDbSymbComposing",
+        "TDbSymbCoord",
+        "TDbSymbElevation",
+        "TDbSymbArrow",
+        "TDbSymbMultiLeader",
+        "TDbSymbSection",
+        "TDbDrawingName",
+        "TDbInSight"
+    };
+
+    /// <summary>
+    /// 天正标注对象类型列表（无法通过 .NET COM 修改 TextColor）
+    /// </summary>
+    private static readonly HashSet<string> s_tarchUnmodifiableTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "TDbSymbDrawingIndex"
+    };
+
+    /// <summary>
+    /// 块引用对象类型列表
+    /// </summary>
+    private static readonly HashSet<string> s_blockReferenceTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "AcDbBlockReference",
+        "TDbBlockInsert"
+    };
 
     /// <summary>
     /// 判断对象的颜色是否为 ByLayer
@@ -45,6 +82,104 @@ public static class ColorHelper
     }
 
     /// <summary>
+    /// 尝试通过 COM interop 设置天正符号对象的 TextColor 为 ByLayer
+    /// </summary>
+    /// <param name="entity">要修改的实体</param>
+    /// <param name="tr">事务对象</param>
+    /// <returns>如果成功修改返回true，如果非天正对象或修改失败返回false</returns>
+    public static bool SetTArchTextColor(Entity entity, Transaction tr)
+    {
+        if (entity == null || tr == null)
+            return false;
+
+        try
+        {
+            // 获取 COM 对象
+            dynamic acadObj = entity.AcadObject;
+            if (acadObj == null)
+                return false;
+
+            // 获取 ObjectName（如果失败，用 .NET 类型名）
+            string objectName = "";
+            try
+            {
+                objectName = acadObj.ObjectName;
+            }
+            catch { }
+
+            if (string.IsNullOrEmpty(objectName))
+            {
+                objectName = entity.GetType().Name;
+            }
+
+            // 检查是否是可修改的天正类型
+            if (!s_tarchSymbolTypes.Contains(objectName))
+                return false;
+
+            // 设置 TextColor = 256 (ByLayer)
+            acadObj.GetType().InvokeMember("TextColor",
+                System.Reflection.BindingFlags.SetProperty,
+                null, acadObj, new object[] { ByLayerColorIndex });
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 设置块引用的颜色为 ByLayer
+    /// </summary>
+    /// <param name="entity">要修改的块引用实体</param>
+    /// <param name="tr">事务对象</param>
+    /// <returns>如果成功修改返回true，如果非块引用或修改失败返回false</returns>
+    public static bool SetBlockReferenceColor(Entity entity, Transaction tr)
+    {
+        if (entity == null || tr == null)
+            return false;
+
+        try
+        {
+            // 检查是否是块引用
+            if (!(entity is BlockReference))
+                return false;
+
+            // 获取 COM 对象
+            dynamic acadObj = entity.AcadObject;
+            if (acadObj == null)
+                return false;
+
+            // 获取 ObjectName
+            string objectName = "";
+            try
+            {
+                objectName = acadObj.ObjectName;
+            }
+            catch
+            {
+                return false;
+            }
+
+            // 检查是否是已知的块引用类型
+            if (!s_blockReferenceTypes.Contains(objectName))
+                return false;
+
+            // 设置 Color = ByLayer (256)
+            acadObj.GetType().InvokeMember("Color",
+                System.Reflection.BindingFlags.SetProperty,
+                null, acadObj, new object[] { ByLayerColorIndex });
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// 将对象颜色设置为 ByLayer
     /// </summary>
     /// <param name="entity">要修改的实体</param>
@@ -68,6 +203,20 @@ public static class ColorHelper
             {
                 // 如果无法检查图层状态，假设未锁定
             }
+        }
+
+        // 优先尝试通过 COM interop 设置天正对象的 TextColor
+        if (tr != null)
+        {
+            if (SetTArchTextColor(entity, tr))
+                return true; // 天正对象已通过 COM 方式修改
+        }
+
+        // 处理块引用（CAD原生块和天正块）
+        if (tr != null && entity is BlockReference)
+        {
+            if (SetBlockReferenceColor(entity, tr))
+                return true; // 块引用已修改
         }
 
         // 检查是否已经是ByLayer
