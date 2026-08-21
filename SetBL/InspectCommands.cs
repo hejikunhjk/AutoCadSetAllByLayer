@@ -18,7 +18,7 @@ public class InspectCommands
     /// INSPECT command - Inspect selected objects
     /// Usage: Select objects with window selection
     /// </summary>
-    [CommandMethod("INSPECT")]
+    // [CommandMethod("INSPECT")]
     public void InspectObjects()
     {
         Document doc = Application.DocumentManager.MdiActiveDocument;
@@ -74,7 +74,7 @@ public class InspectCommands
     /// INSPECTX command - Inspect single object XData
     /// Usage: Pick one object
     /// </summary>
-    [CommandMethod("INSPECTX")]
+    // [CommandMethod("INSPECTX")]
     public void InspectXData()
     {
         Document doc = Application.DocumentManager.MdiActiveDocument;

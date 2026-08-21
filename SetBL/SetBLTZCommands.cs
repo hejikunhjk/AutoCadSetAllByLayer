@@ -78,7 +78,7 @@ public class SetBLTZCommands
     /// SetBLTZ 命令 - 主入口
     /// 尝试将包括天正对象在内的所有对象颜色设为 ByLayer
     /// </summary>
-    [CommandMethod("SetBLTZ")]
+    // [CommandMethod("SetBLTZ")]
     public void SetAllByColorWithTArch()
     {
         Document doc = Application.DocumentManager.MdiActiveDocument;
